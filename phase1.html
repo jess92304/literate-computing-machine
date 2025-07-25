@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glass UI Speech-to-Text</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+      background-size: 400% 400%;
+      animation: gradientBG 15s ease infinite;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 20px;
+      color: #fff;
+    }
+
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .stars {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .star {
+      position: absolute;
+      background-color: white;
+      border-radius: 50%;
+      animation: twinkle var(--duration, 4s) infinite ease-in-out;
+    }
+
+    @keyframes twinkle {
+      0%, 100% { opacity: var(--start-opacity, 0.3); }
+      50% { opacity: var(--end-opacity, 1); }
+    }
+
+    .glass-container {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 700px;
+      width: 100%;
+      margin: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      position: relative;
+      overflow: hidden;
+      z-index: 10;
+    }
+
+    .glass-container::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 70%);
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      position: relative;
+    }
+
+    .header h1 {
+      font-size: 2.8rem;
+      background: linear-gradient(to right, #a6c0fe, #f68084);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      margin-bottom: 10px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .header p {
+      font-size: 1.1rem;
+      opacity: 0.8;
+      max-width: 500px;
+      margin: 0 auto;
+      line-height: 1.6;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: linear-gradient(45deg, #6C63FF, #8B78FF);
+      color: white;
+      border: none;
+      padding: 16px 35px;
+      border-radius: 50px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(108, 99, 255, 0.3);
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    button:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 20px rgba(108, 99, 255, 0.4);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      background: rgba(108, 99, 255, 0.5);
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    #stopBtn {
+      background: linear-gradient(45deg, #FF4B81, #FF6B95);
+      box-shadow: 0 4px 15px rgba(255, 75, 129, 0.3);
+    }
+
+    #stopBtn:hover {
+      box-shadow: 0 6px 20px rgba(255, 75, 129, 0.4);
+    }
+
+    #langSelect {
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50px;
+      padding: 0 20px;
+      color: white;
+      font-size: 1rem;
+      outline: none;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      backdrop-filter: blur(5px);
+      -webkit-backdrop-filter: blur(5px);
+    }
+
+    #langSelect:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    #langSelect option {
+      background: rgba(30, 30, 50, 0.9);
+    }
+
+    .status {
+      text-align: center;
+      margin: 20px 0;
+      min-height: 30px;
+      font-size: 1.1rem;
+      font-weight: 500;
+    }
+
+    .listening {
+      color: #6C63FF;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.8; }
+      50% { opacity: 1; text-shadow: 0 0 10px rgba(108, 99, 255, 0.7); }
+    }
+
+    #output {
+      min-height: 200px;
+      background: rgba(0, 0, 0, 0.15);
+      padding: 25px;
+      border-radius: 15px;
+      margin-top: 20px;
+      font-size: 1.2rem;
+      line-height: 1.7;
+      overflow-y: auto;
+      max-height: 300px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    #output:empty::before {
+      content: "Your transcribed text will appear here...";
+      color: rgba(255, 255, 255, 0.4);
+      font-style: italic;
+    }
+
+    .confidence {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-top: 20px;
+      background: rgba(0, 0, 0, 0.15);
+      padding: 15px;
+      border-radius: 12px;
+      font-size: 1rem;
+    }
+
+    .confidence-meter {
+      flex: 1;
+      height: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .confidence-level {
+      height: 100%;
+      background: linear-gradient(90deg, #FF6B95, #FF9A8B);
+      border-radius: 5px;
+      transition: width 0.5s ease;
+    }
+
+    .instructions {
+      background: rgba(0, 0, 0, 0.15);
+      padding: 20px;
+      border-radius: 15px;
+      margin-top: 25px;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+
+    .instructions h3 {
+      margin-bottom: 10px;
+      color: #a6c0fe;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .instructions ul {
+      padding-left: 20px;
+    }
+
+    .instructions li {
+      margin-bottom: 8px;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 30px;
+      font-size: 0.9rem;
+      opacity: 0.7;
+    }
+
+    @media (max-width: 600px) {
+      .glass-container {
+        padding: 25px;
+      }
+      
+      .header h1 {
+        font-size: 2.2rem;
+      }
+      
+      .controls {
+        flex-direction: column;
+        align-items: center;
+      }
+      
+      button, #langSelect {
+        width: 100%;
+        max-width: 300px;
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Background stars -->
+  <div class="stars" id="stars"></div>
+  
+  <div class="glass-container">
+    <div class="header">
+      <h1><i class="fas fa-microphone-alt"></i> VOICE TO TEXT</h1>
+      <p>Transform your spoken words into text with our advanced speech recognition technology</p>
+    </div>
+    
+    <div class="controls">
+      <select id="langSelect">
+        <option value="en-US">English (US)</option>
+        <option value="en-GB">English (UK)</option>
+        <option value="es-ES">Spanish</option>
+        <option value="fr-FR">French</option>
+        <option value="de-DE">German</option>
+      </select>
+      
+      <button id="startBtn" onclick="startListening()">
+        <i class="fas fa-microphone"></i> START SPEAKING
+      </button>
+      
+      <button id="stopBtn" onclick="stopListening()" disabled>
+        <i class="fas fa-stop-circle"></i> STOP
+      </button>
+    </div>
+    
+    <div class="status" id="status">
+      Ready to transcribe your speech
+    </div>
+    
+    <div id="output"></div>
+    
+    <div class="confidence">
+      <span>Confidence:</span>
+      <div class="confidence-meter">
+        <div class="confidence-level" id="confidenceLevel"></div>
+      </div>
+      <span id="confidenceValue">0%</span>
+    </div>
+    
+    <div class="instructions">
+      <h3><i class="fas fa-lightbulb"></i> Tips for Best Results</h3>
+      <ul>
+        <li>Use a good quality microphone in a quiet environment</li>
+        <li>Speak clearly and at a moderate pace</li>
+        <li>Position the microphone 6-12 inches from your mouth</li>
+        <li>Use Chrome or Edge browser for best compatibility</li>
+      </ul>
+    </div>
+    
+    <div class="footer">
+      <p>Powered by Web Speech API | Works best in Chrome/Edge</p>
+    </div>
+  </div>
+
+  <script>
+    // Create background stars
+    function createStars() {
+      const starsContainer = document.getElementById('stars');
+      const starsCount = 150;
+      
+      for (let i = 0; i < starsCount; i++) {
+        const star = document.createElement('div');
+        star.classList.add('star');
+        
+        // Random star properties
+        const size = Math.random() * 3;
+        const posX = Math.random() * 100;
+        const posY = Math.random() * 100;
+        const duration = 2 + Math.random() * 5;
+        const delay = Math.random() * 5;
+        const startOpacity = 0.1 + Math.random() * 0.4;
+        const endOpacity = 0.6 + Math.random() * 0.4;
+        
+        star.style.width = `${size}px`;
+        star.style.height = `${size}px`;
+        star.style.left = `${posX}%`;
+        star.style.top = `${posY}%`;
+        star.style.setProperty('--duration', `${duration}s`);
+        star.style.setProperty('--start-opacity', startOpacity);
+        star.style.setProperty('--end-opacity', endOpacity);
+        star.style.animationDelay = `${delay}s`;
+        
+        starsContainer.appendChild(star);
+      }
+    }
+    
+    // Speech recognition variables
+    let recognition;
+    let isListening = false;
+    
+    // Initialize the app
+    function init() {
+      createStars();
+      
+      // Check browser support
+      if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) {
+        document.getElementById('status').innerHTML = 
+          'Speech recognition not supported in this browser. Try Chrome or Edge.';
+        document.getElementById('startBtn').disabled = true;
+      }
+    }
+    
+    // Start speech recognition
+    function startListening() {
+      if (isListening) return;
+      
+      // Get selected language
+      const lang = document.getElementById('langSelect').value;
+      
+      // Initialize recognition
+      recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = lang;
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      
+      // Update UI
+      document.getElementById('startBtn').disabled = true;
+      document.getElementById('stopBtn').disabled = false;
+      document.getElementById('status').className = 'status listening';
+      document.getElementById('status').textContent = 'Listening... Speak now!';
+      
+      // Clear previous output
+      document.getElementById('output').textContent = '';
+      
+      // Start recognition
+      recognition.start();
+      isListening = true;
+      
+      // Event handlers
+      recognition.onresult = (event) => {
+        let transcript = '';
+        let confidence = 0;
+        let resultCount = 0;
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            transcript += event.results[i][0].transcript;
+            confidence += event.results[i][0].confidence;
+            resultCount++;
+          } else {
+            transcript += event.results[i][0].transcript;
+          }
+        }
+        
+        // Update transcript
+        document.getElementById('output').textContent = transcript;
+        
+        // Update confidence if we have final results
+        if (resultCount > 0) {
+          const avgConfidence = (confidence / resultCount) * 100;
+          document.getElementById('confidenceLevel').style.width = `${avgConfidence}%`;
+          document.getElementById('confidenceValue').textContent = `${Math.round(avgConfidence)}%`;
+        }
+      };
+      
+      recognition.onerror = (event) => {
+        document.getElementById('status').className = 'status';
+        document.getElementById('status').textContent = `Error: ${event.error}`;
+        resetRecognition();
+      };
+      
+      recognition.onend = () => {
+        if (isListening) {
+          recognition.start(); // Restart if still listening
+        }
+      };
+    }
+    
+    // Stop speech recognition
+    function stopListening() {
+      if (!isListening) return;
+      
+      recognition.stop();
+      resetRecognition();
+      document.getElementById('status').className = 'status';
+      document.getElementById('status').textContent = 'Ready to transcribe your speech';
+    }
+    
+    // Reset recognition state
+    function resetRecognition() {
+      isListening = false;
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('stopBtn').disabled = true;
+    }
+    
+    // Initialize the app when page loads
+    window.onload = init;
+  </script>
+</body>
+</html>
+      // Event handlers
+      recognition.onresult = (event) => {
+        let transcript = '';
+        let confidence = 0;
+        let resultCount = 0;
+        
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            transcript += event.results[i][0].transcript;
+            confidence += event.results[i][0].confidence;
+            resultCount++;
+          } else {
+            transcript += event.results[i][0].transcript;
+          }
+        }
+        
+        // Update transcript
+        transcriptBuffer += transcript;
+        document.getElementById('output').textContent = transcriptBuffer;
+        
+        // Update confidence if we have final results
+        if (resultCount > 0) {
+          const avgConfidence = (confidence / resultCount) * 100;
+          document.getElementById('confidenceLevel').style.width = `${avgConfidence}%`;
+          document.getElementById('confidenceValue').textContent = `${Math.round(avgConfidence)}%`;
+        }
+      };
+      
+      recognition.onerror = (event) => {
+        document.getElementById('status').className = 'status';
+        document.getElementById('status').textContent = `Error: ${event.error}`;
+        resetRecognition();
+      };
+      
+      recognition.onend = () => {
+        if (isListening) {
+          recognition.start(); // Restart if still listening
+        }
+      };
+    }
+    
+    // Stop speech recognition
+    function stopListening() {
+      if (!isListening) return;
+      
+      recognition.stop();
+      resetRecognition();
+      document.getElementById('status').className = 'status';
+      document.getElementById('status').textContent = 'Ready to transcribe your speech';
+    }
+    
+    // Reset recognition state
+    function resetRecognition() {
+      isListening = false;
+      document.getElementById('startBtn').disabled = false;
+      document.getElementById('stopBtn').disabled = true;
+    }
+    
+    // Clear transcript
+    function clearTranscript() {
+      document.getElementById('output').textContent = '';
+      document.getElementById('summaryOutput').textContent = '';
+      transcriptBuffer = "";
+      document.getElementById('confidenceLevel').style.width = '0%';
+      document.getElementById('confidenceValue').textContent = '0%';
+    }
+    
+    // Summarize text
+    function summarizeText() {
+      const text = transcriptBuffer;
+      if (!text.trim()) {
+        alert('No text to summarize!');
+        return;
+      }
+      
+      // Show loading indicator
+      document.getElementById('summaryLoading').style.display = 'block';
+      document.getElementById('summaryOutput').textContent = '';
+      
+      // Simulate processing delay
+      setTimeout(() => {
+        // Generate summary
+        const summary = generateSummary(text);
+        document.getElementById('summaryOutput').innerHTML = summary;
+        document.getElementById('summaryLoading').style.display = 'none';
+      }, 1000);
+    }
+    
+    // Simple text summarization algorithm
+    function generateSummary(text) {
+      // Split into sentences
+      const sentences = text.split(/[.!?]/).filter(s => s.trim().length > 0);
+      
+      // If we have very few sentences, return as is
+      if (sentences.length <= 3) {
+        return text;
+      }
+      
+      // Calculate importance of sentences (very simplified)
+      const sentenceScores = sentences.map(sentence => {
+        // Score based on length and keywords
+        const words = sentence.split(/\s+/).length;
+        const keywords = ['important', 'crucial', 'essential', 'key', 'summary', 
+                          'conclusion', 'therefore', 'thus', 'overall'].filter(kw => 
+          sentence.toLowerCase().includes(kw)
+        return {
+          sentence,
+          score: words * 0.5 + keywords.length * 10
+        };
+      });
+      
+      // Sort by score
+      sentenceScores.sort((a, b) => b.score - a.score);
+      
+      // Take top 30% of sentences
+      const summaryCount = Math.max(2, Math.ceil(sentences.length * 0.3));
+      const summarySentences = sentenceScores.slice(0, summaryCount).map(item => item.sentence);
+      
+      // Sort back to original order
+      const orderedSummary = [];
+      sentences.forEach(sentence => {
+        if (summarySentences.includes(sentence)) {
+          orderedSummary.push(sentence);
+        }
+      });
+      
+      // Create formatted summary
+      return orderedSummary.map(s => `<p>${s.trim()}.</p>`).join('');
+    }
+    
+    // Initialize the app when page loads
+    window.onload = init;
+  </script>
+</body>
+</html>
